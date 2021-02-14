@@ -610,7 +610,7 @@ function make_tests() {
       expand_abbrev_vars(abbrev).forEach((expanded) => {
         add_abbrev_to_all_abbrevs(osis, expanded, all_abbrevs);
         tests.push(
-          `\t\texpect(p.parse("${expanded} 1:1").osis()).toEqual("${match}")`
+          `\t\texpect(p.parse("${expanded} 1:1").osis()).toEqual("${match}");`
         );
       });
       osises.forEach((alt_osis) => {
@@ -642,36 +642,33 @@ function make_tests() {
         });
       });
     });
-    out_array.push(`describe "Localized book ${osis} (${lang})", ->`);
-    out_array.push("\tp = {}");
-    out_array.push("\tbeforeEach ->");
-    out_array.push("\t\tp = new bcv_parser");
+    out_array.push(`describe("Localized book ${osis} (${lang})", () => {`);
+    out_array.push("\tlet p = {};");
+    out_array.push("\tbeforeEach(() => {");
+    out_array.push("\t\tp = new bcv_parser();");
     out_array.push(
-      '\t\tp.set_options book_alone_strategy: "ignore",book_sequence_strategy: "ignore",osis_compaction_strategy: "bc",captive_end_digits_strategy: "delete"'
+      '\t\tp.set_options({book_alone_strategy: "ignore",book_sequence_strategy: "ignore",osis_compaction_strategy: "bc",captive_end_digits_strategy: "delete"});'
     );
-    out_array.push("\t\tp.include_apocrypha true");
-    out_array.push("\t\treturn");
-    out_array.push(`\tit "should handle book: ${osis} (${lang})", ->`);
-    // Drop into js rather than coffeescript to minimize compile times on the coffee side.
-    out_array.push("\t\t`");
+    out_array.push("\t\tp.include_apocrypha(true);");
+    out_array.push("\t});");
+    out_array.push(`\tit("should handle book: ${osis} (${lang})", () => {`);
     out_array = out_array.concat(tests);
     out_array = out_array.concat(add_non_latin_digit_tests(osis, tests));
 
     // Don't check for an empty string because books like EpJer will lead to Jer in language-specific ways.
     if (valid_osises[first] !== "apocrypha") {
-      out_array.push("\t\tp.include_apocrypha(false)");
+      out_array.push("\t\tp.include_apocrypha(false);");
       sort_abbrevs_by_length(Object.keys(abbrevs[osis])).forEach((abbrev) => {
         expand_abbrev_vars(abbrev).forEach((expanded) => {
           expanded = uc_normalize(expanded);
           out_array.push(
-            `\t\texpect(p.parse("${expanded} 1:1").osis()).toEqual("${match}")`
+            `\t\texpect(p.parse("${expanded} 1:1").osis()).toEqual("${match}");`
           );
         });
       });
     }
-    out_array.push("\t\t`");
-    // In keeping with coffeescript, always return something (which, since we just exited a js block, won't otherwise happen).
-    out_array.push("\t\treturn");
+    out_array.push("\t});");
+    out_array.push("});");
   });
 
   const fd = fs.openSync(`${dir}/${lang}/book_names.txt`, "w");
@@ -700,14 +697,14 @@ function make_tests() {
   misc_tests = misc_tests.concat(add_trans_tests());
   misc_tests = misc_tests.concat(add_book_range_tests());
   misc_tests = misc_tests.concat(add_boundary_tests());
-  let out = get_file_contents(`${tools_dir}/template/spec.coffee`);
+  let out = get_file_contents(`${tools_dir}/template/spec.js`);
   const lang_isos = JSON.stringify(vars.$LANG_ISOS);
   out = out.replace(/\$LANG_ISOS/g, lang_isos);
   out = out.replace(/\$LANG/g, lang);
   out = out.replace(/\$BOOK_TESTS/, out_array.join("\x0a"));
   out = out.replace(/\$MISC_TESTS/, misc_tests.join("\x0a"));
 
-  fs.writeFileSync(`${dir}/${lang}/spec.coffee`, out);
+  fs.writeFileSync(`${dir}/${lang}/spec.js`, out);
   let found = out.match(/(\$[A-Z]+)/);
   if (found) {
     throw new Error(`${found}\nTests: Capital variable`);
@@ -776,146 +773,144 @@ function add_non_latin_digit_tests(osis, tests) {
   ) {
     return out;
   }
-  out.push("\t\t`");
-  out.push("\t\treturn");
+  out.push("\t});");
   out.push(
-    `\tit "should handle non-Latin digits in book: ${osis} (${lang})", ->`
+    `\tit("should handle non-Latin digits in book: ${osis} (${lang})", () => {`
   );
-  out.push('\t\tp.set_options non_latin_digits_strategy: "replace"');
-  out.push("\t\t`");
+  out.push('\t\tp.set_options({non_latin_digits_strategy: "replace"});');
   return out.concat(tests);
 }
 
 function add_range_tests() {
   const out = [];
-  out.push(`\tit "should handle ranges (${lang})", ->`);
+  out.push(`\tit("should handle ranges (${lang})", () => {`);
   vars.$TO.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach((to) => {
       out.push(
-        `\t\texpect(p.parse("Titus 1:1 ${to} 2").osis()).toEqual "Titus.1.1-Titus.1.2"`
+        `\t\texpect(p.parse("Titus 1:1 ${to} 2").osis()).toEqual("Titus.1.1-Titus.1.2");`
       );
       out.push(
-        `\t\texpect(p.parse("Matt 1${to}2").osis()).toEqual "Matt.1-Matt.2"`
+        `\t\texpect(p.parse("Matt 1${to}2").osis()).toEqual("Matt.1-Matt.2");`
       );
       out.push(
         `\t\texpect(p.parse("Phlm 2 ${uc_normalize(
           to
-        )} 3").osis()).toEqual "Phlm.1.2-Phlm.1.3"`
+        )} 3").osis()).toEqual("Phlm.1.2-Phlm.1.3");`
       );
     });
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_chapter_tests() {
   const out = [];
-  out.push(`\tit "should handle chapters (${lang})", ->`);
+  out.push(`\tit("should handle chapters (${lang})", () => {`);
   vars.$CHAPTER.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (chapter) => {
         out.push(
-          `\t\texpect(p.parse("Titus 1:1, ${chapter} 2").osis()).toEqual "Titus.1.1,Titus.2"`
+          `\t\texpect(p.parse("Titus 1:1, ${chapter} 2").osis()).toEqual("Titus.1.1,Titus.2");`
         );
         out.push(
           `\t\texpect(p.parse("Matt 3:4 ${uc_normalize(
             chapter
-          )} 6").osis()).toEqual "Matt.3.4,Matt.6"`
+          )} 6").osis()).toEqual("Matt.3.4,Matt.6");`
         );
       }
     );
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_verse_tests() {
   const out = [];
-  out.push(`\tit "should handle verses (${lang})", ->`);
+  out.push(`\tit("should handle verses (${lang})", () => {`);
   vars.$VERSE.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (verse) => {
         out.push(
-          `\t\texpect(p.parse("Exod 1:1 ${verse} 3").osis()).toEqual "Exod.1.1,Exod.1.3"`
+          `\t\texpect(p.parse("Exod 1:1 ${verse} 3").osis()).toEqual("Exod.1.1,Exod.1.3");`
         );
         out.push(
           `\t\texpect(p.parse("Phlm ${uc_normalize(
             verse
-          )} 6").osis()).toEqual "Phlm.1.6"`
+          )} 6").osis()).toEqual("Phlm.1.6");`
         );
       }
     );
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_sequence_tests() {
   const out = [];
-  out.push(`\tit "should handle 'and' (${lang})", ->`);
+  out.push(`\tit("should handle 'and' (${lang})", () => {`);
   vars.$AND.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (and) => {
         out.push(
-          `\t\texpect(p.parse("Exod 1:1 ${and} 3").osis()).toEqual "Exod.1.1,Exod.1.3"`
+          `\t\texpect(p.parse("Exod 1:1 ${and} 3").osis()).toEqual("Exod.1.1,Exod.1.3");`
         );
         out.push(
           `\t\texpect(p.parse("Phlm 2 ${uc_normalize(
             and
-          )} 6").osis()).toEqual "Phlm.1.2,Phlm.1.6"`
+          )} 6").osis()).toEqual("Phlm.1.2,Phlm.1.6");`
         );
       }
     );
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_title_tests() {
   const out = [];
-  out.push(`\tit "should handle titles (${lang})", ->`);
+  out.push(`\tit("should handle titles (${lang})", () => {`);
   vars.$TITLE.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (title) => {
         out.push(
-          `\t\texpect(p.parse("Ps 3 ${title}, 4:2, 5:${title}").osis()).toEqual "Ps.3.1,Ps.4.2,Ps.5.1"`
+          `\t\texpect(p.parse("Ps 3 ${title}, 4:2, 5:${title}").osis()).toEqual("Ps.3.1,Ps.4.2,Ps.5.1");`
         );
         out.push(
           `\t\texpect(p.parse("${uc_normalize(
             `Ps 3 ${title}, 4:2, 5:${title}`
-          )}").osis()).toEqual "Ps.3.1,Ps.4.2,Ps.5.1"`
+          )}").osis()).toEqual("Ps.3.1,Ps.4.2,Ps.5.1");`
         );
       }
     );
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_ff_tests() {
   const out = [];
-  out.push(`\tit "should handle 'ff' (${lang})", ->`);
+  out.push(`\tit("should handle 'ff' (${lang})", () => {`);
   if (lang === "it") {
-    out.push('\t\tp.set_options {case_sensitive: "books"}');
+    out.push('\t\tp.set_options({case_sensitive: "books"});');
   }
   vars.$FF.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach((ff) => {
       out.push(
-        `\t\texpect(p.parse("Rev 3${ff}, 4:2${ff}").osis()).toEqual "Rev.3-Rev.22,Rev.4.2-Rev.4.11"`
+        `\t\texpect(p.parse("Rev 3${ff}, 4:2${ff}").osis()).toEqual("Rev.3-Rev.22,Rev.4.2-Rev.4.11");`
       );
       if (lang !== "it") {
         out.push(
           `\t\texpect(p.parse("${uc_normalize(
             `Rev 3 ${ff}, 4:2 ${ff}`
-          )}").osis()).toEqual "Rev.3-Rev.22,Rev.4.2-Rev.4.11"`
+          )}").osis()).toEqual("Rev.3-Rev.22,Rev.4.2-Rev.4.11");`
         );
       }
     });
   });
   if (lang === "it") {
-    out.push('\t\tp.set_options {case_sensitive: "none"}');
+    out.push('\t\tp.set_options({case_sensitive: "none"});');
   }
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
@@ -924,69 +919,69 @@ function add_next_tests() {
     return [];
   }
   const out = [];
-  out.push(`\tit "should handle 'next' (${lang})", ->`);
+  out.push(`\tit("should handle 'next' (${lang})", () => {`);
   if (lang === "it") {
-    out.push('\t\tp.set_options {case_sensitive: "books"}');
+    out.push('\t\tp.set_options({case_sensitive: "books"});');
   }
   vars.$NEXT.forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (next) => {
         out.push(
-          `\t\texpect(p.parse("Rev 3:1${next}, 4:2${next}").osis()).toEqual "Rev.3.1-Rev.3.2,Rev.4.2-Rev.4.3"`
+          `\t\texpect(p.parse("Rev 3:1${next}, 4:2${next}").osis()).toEqual("Rev.3.1-Rev.3.2,Rev.4.2-Rev.4.3");`
         );
         if (lang !== "it") {
           out.push(
             `\t\texpect(p.parse("${uc_normalize(
               `Rev 3 ${next}, 4:2 ${next}`
-            )}").osis()).toEqual "Rev.3-Rev.4,Rev.4.2-Rev.4.3"`
+            )}").osis()).toEqual("Rev.3-Rev.4,Rev.4.2-Rev.4.3");`
           );
         }
         out.push(
-          `\t\texpect(p.parse("Jude 1${next}, 2${next}").osis()).toEqual "Jude.1.1-Jude.1.2,Jude.1.2-Jude.1.3"`
+          `\t\texpect(p.parse("Jude 1${next}, 2${next}").osis()).toEqual("Jude.1.1-Jude.1.2,Jude.1.2-Jude.1.3");`
         );
         out.push(
-          `\t\texpect(p.parse("Gen 1:31${next}").osis()).toEqual "Gen.1.31-Gen.2.1"`
+          `\t\texpect(p.parse("Gen 1:31${next}").osis()).toEqual("Gen.1.31-Gen.2.1");`
         );
         out.push(
-          `\t\texpect(p.parse("Gen 1:2-31${next}").osis()).toEqual "Gen.1.2-Gen.2.1"`
+          `\t\texpect(p.parse("Gen 1:2-31${next}").osis()).toEqual("Gen.1.2-Gen.2.1");`
         );
         out.push(
-          `\t\texpect(p.parse("Gen 1:2${next}-30").osis()).toEqual "Gen.1.2-Gen.1.3,Gen.1.30"`
+          `\t\texpect(p.parse("Gen 1:2${next}-30").osis()).toEqual("Gen.1.2-Gen.1.3,Gen.1.30");`
         );
         out.push(
-          `\t\texpect(p.parse("Gen 50${next}, Gen 50:26${next}").osis()).toEqual "Gen.50,Gen.50.26"`
+          `\t\texpect(p.parse("Gen 50${next}, Gen 50:26${next}").osis()).toEqual("Gen.50,Gen.50.26");`
         );
         out.push(
-          `\t\texpect(p.parse("Gen 1:32${next}, Gen 51${next}").osis()).toEqual ""`
+          `\t\texpect(p.parse("Gen 1:32${next}, Gen 51${next}").osis()).toEqual("");`
         );
       }
     );
   });
   if (lang === "it") {
-    out.push('\t\tp.set_options {case_sensitive: "none"}');
+    out.push('\t\tp.set_options({case_sensitive: "none"});');
   }
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_trans_tests() {
   const out = [];
-  out.push(`\tit "should handle translations (${lang})", ->`);
+  out.push(`\tit("should handle translations (${lang})", () => {`);
   [...vars.$TRANS].sort().forEach((abbrev) => {
     expand_abbrev(remove_exclamations(handle_accents(abbrev))).forEach(
       (translation) => {
         const [trans, maybe_osis] = translation.split(",");
         const osis = maybe_osis ? maybe_osis : trans;
         out.push(
-          `\t\texpect(p.parse("Lev 1 (${trans})").osis_and_translations()).toEqual [["Lev.1", "${osis}"]]`
+          `\t\texpect(p.parse("Lev 1 (${trans})").osis_and_translations()).toEqual([["Lev.1", "${osis}"]]);`
         );
         out.push(
-          `\t\texpect(p.parse("${`Lev 1 ${trans}`.toLowerCase()}").osis_and_translations()).toEqual [["Lev.1", "${osis}"]]`
+          `\t\texpect(p.parse("${`Lev 1 ${trans}`.toLowerCase()}").osis_and_translations()).toEqual([["Lev.1", "${osis}"]]);`
         );
       }
     );
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
@@ -1010,9 +1005,9 @@ function add_book_range_tests() {
   }
   const out = [];
   const johns = expand_abbrev(handle_accents(john));
-  out.push(`\tit "should handle book ranges (${lang})", ->`);
+  out.push(`\tit("should handle book ranges (${lang})", () => {`);
   out.push(
-    '\t\tp.set_options {book_alone_strategy: "full", book_range_strategy: "include"}'
+    '\t\tp.set_options({book_alone_strategy: "full", book_range_strategy: "include"});'
   );
   const alreadys = {};
   johns.sort().forEach((abbrev) => {
@@ -1024,23 +1019,23 @@ function add_book_range_tests() {
             return;
           }
           out.push(
-            `\t\texpect(p.parse("${first_to_third}").osis()).toEqual "1John.1-3John.1"`
+            `\t\texpect(p.parse("${first_to_third}").osis()).toEqual("1John.1-3John.1");`
           );
           alreadys[first_to_third] = 1;
         }
       );
     });
   });
-  out.push("\t\treturn");
+  out.push("\t});");
   return out;
 }
 
 function add_boundary_tests() {
-  return `\tit "should handle boundaries (${lang})", ->
-\t\tp.set_options {book_alone_strategy: "full"}
-\t\texpect(p.parse("\\u2014Matt\\u2014").osis()).toEqual "Matt.1-Matt.28"
-\t\texpect(p.parse("\\u201cMatt 1:1\\u201d").osis()).toEqual "Matt.1.1"
-\t\treturn`;
+  return `\tit("should handle boundaries (${lang})", () => {
+\t\tp.set_options({book_alone_strategy: "full"});
+\t\texpect(p.parse("\\u2014Matt\\u2014").osis()).toEqual("Matt.1-Matt.28");
+\t\texpect(p.parse("\\u201cMatt 1:1\\u201d").osis()).toEqual("Matt.1.1");
+\t});`;
 }
 
 function get_abbrevs() {
