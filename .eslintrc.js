@@ -1,3 +1,3 @@
 module.exports = {
-  extends: "kentcdodds",
+  extends: ["kentcdodds", "kentcdodds/jest"],
 };
