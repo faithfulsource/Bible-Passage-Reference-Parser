@@ -33,10 +33,9 @@
     "lint": "eslint . --ignore-path .gitignore",
     "lint:fix": "eslint . --ignore-path .gitignore --fix",
     "test": "jest",
-    "test:lang": "bash -c 'jest src/$0/spec.coffee'"
+    "test:lang": "bash -c 'jest src/$0/spec.js'"
   },
   "devDependencies": {
-    "@danielbayley/jest-preset-coffeescript": "^2.0.3",
     "coffeescript": "^1.12.7",
     "eslint": "^7.18.0",
     "eslint-config-kentcdodds": "^17.3.2",
